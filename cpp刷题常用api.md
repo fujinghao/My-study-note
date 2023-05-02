@@ -1,9 +1,10 @@
 # 一、函数
 
-##  1.查找
+## 1.查找
 
 ---
-### 1.实现lower_bound
+
+### 1. 实现lower_bound
 
 ```cpp
 int MyLower_bound(vector<int>& nums, int target){
@@ -23,6 +24,7 @@ int MyLower_bound(vector<int>& nums, int target){
     return left;
 }
 ```
+
 ### 2. 实现upper_bound
 
 ```cpp
@@ -40,9 +42,11 @@ int MyUpper_bound(vector<int>& nums, int target){
     return left;
 }
 ```
+
 ## 2. 字符串处理
 
 ---
+
 ### 1. 实现split()
 
 ```cpp
@@ -53,7 +57,7 @@ vector<string> split(string str, char c){
         if (i == c){
             //防止把空字符串添加到开始
             if (!cur.empty()){
-            	ret.push_back(move(cur));
+                ret.push_back(move(cur));
             }
         }
         else {
@@ -62,7 +66,7 @@ vector<string> split(string str, char c){
     }
     //防止把空字符串添加到jie'we
     if (!cur.empty()){
-    	ret.push_back(cur);
+        ret.push_back(cur);
     }
     return ret;
 }
@@ -99,9 +103,7 @@ int main()
 //上面的代码会在控制台输出“7\n7\n18446744073709551615”。
 ```
 
-
-
-##  3 .数论
+## 3 .数论
 
 ---
 
@@ -141,7 +143,7 @@ int main()
 //时间复杂度：O(log⁡n)。循环次数等于 n的二进制位中 1 的个数，最坏情况下 n的二进制位全部为 1。我们需要循环 log⁡n 次。
 ```
 
-### 3.给定整数 n，返回 所有小于非负整数 n 的质数的数量。
+### 3.给定整数 n，返回 所有小于非负整数 n 的质数的数量
 
 ```c++
 //埃氏筛
@@ -175,8 +177,6 @@ __gcd(m,n)
 lcm(m,n)
 ```
 
-
-
 ## 4. 栈
 
 ---
@@ -199,8 +199,6 @@ lcm(m,n)
     }
 ```
 
-
-
 ## 5. 杂
 
 ### 1. 求区间AB相交的范围
@@ -208,10 +206,3 @@ lcm(m,n)
 ```c++
 int range = min(A_right, B_right) - max(A_left) 
 ```
-
-
-
-
-
-
-
