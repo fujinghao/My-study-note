@@ -7,6 +7,7 @@
 ### 1. 实现lower_bound
 
 ```cpp
+//lower_bound() 函数用于在指定区域内查找不小于目标值的第一个元素
 int MyLower_bound(vector<int>& nums, int target){
     int left = 0, right = nums.size() - 1;
     //找到比target小的第一个数（left）
@@ -28,6 +29,7 @@ int MyLower_bound(vector<int>& nums, int target){
 ### 2. 实现upper_bound
 
 ```cpp
+//用于在指定范围内查找大于目标值的第一个元素
 int MyUpper_bound(vector<int>& nums, int target){
     int left = 0, right = nums.size() - 1;
     while (left <= right) {
@@ -171,8 +173,37 @@ int main()
 对于任意两个正整数 n，m的最小公倍数为 n×m / gcd⁡(n,m).其中 gcd⁡(n,m) 为 n 和 m 的最大公约数。
 
 ```c++
-//最小公约数,两个
+//最大公约数,两个
 __gcd(m,n)
+//c++17
+gcd(m, n)
+//辗转相除法又叫做欧几里得算法，是指用于计算两个正整数a,b的最大公约数。
+//思想：用较大的数除以较小的数得到余数，再用较小的数除以余数以此循环，直到最后余数为零，最后除的数即为最大公约数，代码为表示为
+ gcd(a,b)=gcd(b,a mod b);
+//递归实现
+int gcd(int a,int b)
+{
+	if(b>a) return gcd(b,a);
+	int remind=a%b;
+	if(remind==0) return b;
+	else return gcd(b,remind);
+}
+
+//循环实现
+int gcd(int a,int b)
+{
+	if(b>a) return gcd(b,a);
+	int remind=1;
+	while(remind)
+	{
+		remind=a%b;
+		a=b;
+		b=remind;
+	}
+	return a;
+}
+
+
 //最小公倍数
 lcm(m,n)
 ```
