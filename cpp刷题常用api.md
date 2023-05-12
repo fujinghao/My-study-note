@@ -170,7 +170,7 @@ int main()
 
 ### 4.最大公约数和最小公倍数
 
-对于任意两个正整数 n，m的最小公倍数为` n×m / gcd⁡(n,m)·`.其中 gcd⁡(n,m) 为 n 和 m 的最大公约数。
+对于任意两个正整数 n，m的最小公倍数为`n×m / gcd⁡(n,m)·`.其中 gcd⁡(n,m) 为 n 和 m 的最大公约数。
 
 ```c++
 //最大公约数,两个
@@ -183,24 +183,24 @@ gcd(m, n)
 //递归实现
 int gcd(int a,int b)
 {
-	if(b>a) return gcd(b,a);
-	int remind=a%b;
-	if(remind==0) return b;
-	else return gcd(b,remind);
+    if(b>a) return gcd(b,a);
+    int remind=a%b;
+    if(remind==0) return b;
+    else return gcd(b,remind);
 }
 
 //循环实现
 int gcd(int a,int b)
 {
-	if(b>a) return gcd(b,a);
-	int remind=1;
-	while(remind)
-	{
-		remind=a%b;
-		a=b;
-		b=remind;
-	}
-	return a;
+    if(b>a) return gcd(b,a);
+    int remind=1;
+    while(remind)
+    {
+        remind=a%b;
+        a=b;
+        b=remind;
+    }
+    return a;
 }
 
 
