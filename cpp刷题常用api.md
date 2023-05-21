@@ -235,5 +235,5 @@ lcm(m,n)
 ### 1. 求区间AB相交的范围
 
 ```c++
-int range = min(A_right, B_right) - max(A_left) 
+int range = min(A_right, B_right) - max(A_left, B_left) 
 ```
