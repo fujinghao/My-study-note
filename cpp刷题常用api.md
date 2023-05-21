@@ -203,9 +203,24 @@ int gcd(int a,int b)
     return a;
 }
 
-
 //最小公倍数
 lcm(m,n)
+```
+
+### 5. 取整
+
+```cpp
+//floor()朝负无穷方向取整
+cout<<floor(3.2)<<" "<<floor(-3.2)<<endl;
+//输出 ：3 -4
+
+//ceil()朝正无穷方向取整
+cout<<ceil(3.2)<<" "<<ceil(-3.2)<<endl;
+//输出 : 4 -3
+
+//round()四舍五入到最近的整数
+cout<<round(3.5)<<" "<<round(-3.5)<<" "<<round(-3.4)<<endl;
+//输出 : 4 -4 -3
 ```
 
 ## 4. 栈
