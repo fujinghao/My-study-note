@@ -81,7 +81,9 @@ vector<string> split(string str, char c){
 alpha ^= 32;
 //或者
 alpha ^= (1 << 5);
-
+//c++
+tolower(c)
+toupper(c)
 ```
 
 ### 3.字符串查找元素
@@ -249,6 +251,6 @@ cout<<round(3.5)<<" "<<round(-3.5)<<" "<<round(-3.4)<<endl;
 
 ### 1. 求区间AB相交的范围
 
-```c++
+```cpp
 int range = min(A_right, B_right) - max(A_left, B_left) 
 ```
