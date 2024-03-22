@@ -291,3 +291,297 @@ Redis Hash 存储其结构如下图：
 - 商品总数：`HLEN cart:{用户id}`
 - 删除商品：`HDEL cart:{用户id} {商品id}`
 - 获取购物车所有商品：`HGETALL cart:{用户id}`
+
+### 2.4 Set
+
+Set 类型是一个无序并唯一的键值集合，它的存储顺序不会按照插入的先后顺序进行存储。
+
+一个集合最多可以存储 `2^32-1` 个元素。概念和数学中个的集合基本类似，可以交集，并集，差集等等，所以 Set 类型除了支持集合内的增删改查，同时还支持多个集合取交集、并集、差集。
+
+<div align=center><img src=".\fig\set.webp"height="340"/> </div>
+
+
+
+Set 类型的底层数据结构是由**哈希表或整数集合**实现的：
+
+- 如果集合中的元素都是整数且元素个数小于 `512` （默认值，`set-maxintset-entries`配置）个，Redis 会使用**整数集合**作为 Set 类型的底层数据结构；
+- 如果集合中的元素不满足上面条件，则 Redis 使用**哈希表**作为 Set 类型的底层数据结构
+
+#### 2.3.1 常用指令
+
+```shell
+# 往集合key中存入元素(支持存入多个元素)，元素存在则忽略，若key不存在则新建
+SADD key member [member ...]
+# 从集合key中删除元素
+SREM key member [member ...] 
+# 获取集合key中所有元素
+SMEMBERS key
+# 获取集合key中的元素个数
+SCARD key
+
+# 判断member元素是否存在于集合key中
+SISMEMBER key member
+
+# 从集合key中随机选出count个元素，元素不从key中删除
+SRANDMEMBER key [count]
+# 从集合key中随机选出count个元素，元素从key中删除
+SPOP key [count]
+```
+
+```shell
+# 交集运算
+SINTER key [key ...]
+# 将交集结果存入新集合destination中
+SINTERSTORE destination key [key ...]
+
+# 并集运算
+SUNION key [key ...]
+# 将并集结果存入新集合destination中
+SUNIONSTORE destination key [key ...]
+
+# 差集运算
+SDIFF key [key ...]
+# 将差集结果存入新集合destination中
+SDIFFSTORE destination key [key ...]
+```
+
+#### 2.3.2 应用场景
+
+**1.点赞**
+
+Set 类型可以保证一个用户只能点一个赞，这里举例子一个场景，key 是文章id，value 是用户id。
+
+`uid:1` 、`uid:2`、`uid:3` 三个用户分别对 article:1 文章点赞了。
+
+```shell
+# uid:1 用户对文章 article:1 点赞
+> SADD article:1 uid:1
+(integer) 1
+# uid:2 用户对文章 article:1 点赞
+> SADD article:1 uid:2
+(integer) 1
+# uid:3 用户对文章 article:1 点赞
+> SADD article:1 uid:3
+(integer) 1
+```
+
+`uid:1` 取消了对 article:1 文章点赞。
+
+```text
+> SREM article:1 uid:1
+(integer) 1
+```
+
+获取 article:1 文章所有点赞用户 :
+
+```shell
+> SMEMBERS article:1
+1) "uid:3"
+2) "uid:2"
+```
+
+获取 article:1 文章的点赞用户数量：
+
+```shell
+> SCARD article:1
+(integer) 2
+```
+
+判断用户 `uid:1` 是否对文章 article:1 点赞了：
+
+```shell
+> SISMEMBER article:1 uid:1
+(integer) 0  # 返回0说明没点赞，返回1则说明点赞了
+```
+
+**2.共同关注**
+
+Set 类型支持交集运算，所以可以用来计算共同关注的好友、公众号等。
+
+key 可以是用户id，value 则是已关注的公众号的id。
+
+`uid:1` 用户关注公众号 id 为 5、6、7、8、9，`uid:2` 用户关注公众号 id 为 7、8、9、10、11。
+
+```shell
+# uid:1 用户关注公众号 id 为 5、6、7、8、9
+> SADD uid:1 5 6 7 8 9
+(integer) 5
+# uid:2  用户关注公众号 id 为 7、8、9、10、11
+> SADD uid:2 7 8 9 10 11
+(integer) 5
+```
+
+`uid:1` 和 `uid:2` 共同关注的公众号：
+
+```shell
+# 获取共同关注
+> SINTER uid:1 uid:2
+1) "7"
+2) "8"
+3) "9"
+```
+
+**3.抽奖活动**
+
+存储某活动中中奖的用户名 ，Set 类型因为有去重功能，可以保证同一个用户不会中奖两次。
+
+key为抽奖活动名，value为员工名称，把所有员工名称放入抽奖箱 ：
+
+```shell
+>SADD lucky Tom Jerry John Sean Marry Lindy Sary Mark
+(integer) 5
+```
+
+如果允许重复中奖，可以使用 SRANDMEMBER 命令。
+
+```shell
+# 抽取 1 个一等奖：
+> SRANDMEMBER lucky 1
+1) "Tom"
+# 抽取 2 个二等奖：
+> SRANDMEMBER lucky 2
+1) "Mark"
+2) "Jerry"
+# 抽取 3 个三等奖：
+> SRANDMEMBER lucky 3
+1) "Sary"
+2) "Tom"
+3) "Jerry"
+```
+
+如果不允许重复中奖，可以使用 SPOP 命令。
+
+```shell
+# 抽取一等奖1个
+> SPOP lucky 1
+1) "Sary"
+# 抽取二等奖2个
+> SPOP lucky 2
+1) "Jerry"
+2) "Mark"
+# 抽取三等奖3个
+> SPOP lucky 3
+1) "John"
+2) "Sean"
+3) "Lindy"
+```
+
+### 2.5 Zset
+
+Zset 类型（有序集合类型）相比于 Set 类型多了一个排序属性 score（分值），对于有序集合 Zset 来说，每个存储元素相当于有两个值组成的，一个是有序集合的元素值，一个是排序值。有序集合保留了集合不能有重复成员的特性（分值可以重复），但不同的是，有序集合中的元素可以排序。
+
+<div align=center><img src=".\fig\Zset.webp"height="340"/> </div> 
+
+**内部实现:**
+
+Zset 类型的底层数据结构是由**压缩列表或跳表**实现的：
+
+- 如果有序集合的元素个数小于 `128` 个，并且每个元素的值小于 `64` 字节时，Redis 会使用**压缩列表**作为 Zset 类型的底层数据结构；
+- 如果有序集合的元素不满足上面的条件，Redis 会使用**跳表**作为 Zset 类型的底层数据结构；
+
+**在 Redis 7.0 中，压缩列表数据结构已经废弃了，交由 listpack 数据结构来实现了。**
+
+#### 2.5.1常用指令
+
+Zset 常用操作：
+
+```shell
+# 往有序集合key中加入带分值元素
+ZADD key score member [[score member]...]   
+# 往有序集合key中删除元素
+ZREM key member [member...]                 
+# 返回有序集合key中元素member的分值
+ZSCORE key member
+# 返回有序集合key中元素个数
+ZCARD key 
+
+# 为有序集合key中元素member的分值加上increment
+ZINCRBY key increment member 
+
+# 正序获取有序集合key从start下标到stop下标的元素
+ZRANGE key start stop [WITHSCORES]
+# 倒序获取有序集合key从start下标到stop下标的元素
+ZREVRANGE key start stop [WITHSCORES]
+
+# 返回有序集合中指定分数区间内的成员，分数由低到高排序。
+ZRANGEBYSCORE key min max [WITHSCORES] [LIMIT offset count]
+
+# 返回指定成员区间内的成员，按字典正序排列, 分数必须相同。
+ZRANGEBYLEX key min max [LIMIT offset count]
+# 返回指定成员区间内的成员，按字典倒序排列, 分数必须相同
+ZREVRANGEBYLEX key max min [LIMIT offset count]
+```
+
+Zset 运算操作（相比于 Set 类型，ZSet 类型没有支持差集运算）：
+
+```shell
+# 并集计算(相同元素分值相加)，numberkeys一共多少个key，WEIGHTS每个key对应的分值乘积
+ZUNIONSTORE destkey numberkeys key [key...] 
+# 交集计算(相同元素分值相加)，numberkeys一共多少个key，WEIGHTS每个key对应的分值乘积
+ZINTERSTORE destkey numberkeys key [key...]
+```
+
+#### 2.5.2 应用场景
+
+#### 排行榜
+
+有序集合比较典型的使用场景就是排行榜。例如学生成绩的排名榜、游戏积分排行榜、视频播放排名、电商系统中商品的销量排名等。
+
+我们以博文点赞排名为例，小林发表了五篇博文，分别获得赞为 200、40、100、50、150。
+
+```shell
+# arcticle:1 文章获得了200个赞
+> ZADD user:xiaolin:ranking 200 arcticle:1
+(integer) 1
+# arcticle:2 文章获得了40个赞
+> ZADD user:xiaolin:ranking 40 arcticle:2
+(integer) 1
+# arcticle:3 文章获得了100个赞
+> ZADD user:xiaolin:ranking 100 arcticle:3
+(integer) 1
+# arcticle:4 文章获得了50个赞
+> ZADD user:xiaolin:ranking 50 arcticle:4
+(integer) 1
+# arcticle:5 文章获得了150个赞
+> ZADD user:xiaolin:ranking 150 arcticle:5
+(integer) 1
+```
+
+文章 arcticle:4 新增一个赞，可以使用 ZINCRBY 命令（为有序集合key中元素member的分值加上increment）：
+
+```shell
+> ZINCRBY user:xiaolin:ranking 1 arcticle:4
+"51"
+```
+
+查看某篇文章的赞数，可以使用 ZSCORE 命令（返回有序集合key中元素个数）：
+
+```shell
+> ZSCORE user:xiaolin:ranking arcticle:4
+"50"
+```
+
+获取小林文章赞数最多的 3 篇文章，可以使用 ZREVRANGE 命令（倒序获取有序集合 key 从start下标到stop下标的元素）：
+
+```shell
+# WITHSCORES 表示把 score 也显示出来
+> ZREVRANGE user:xiaolin:ranking 0 2 WITHSCORES
+1) "arcticle:1"
+2) "200"
+3) "arcticle:5"
+4) "150"
+5) "arcticle:3"
+6) "100"
+```
+
+获取小林 100 赞到 200 赞的文章，可以使用 ZRANGEBYSCORE 命令（返回有序集合中指定分数区间内的成员，分数由低到高排序）：
+
+```shell
+> ZRANGEBYSCORE user:xiaolin:ranking 100 200 WITHSCORES
+1) "arcticle:3"
+2) "100"
+3) "arcticle:5"
+4) "150"
+5) "arcticle:1"
+6) "200"
+```
