@@ -238,3 +238,117 @@ runoob/ubuntu       v3                  4e3b13c8a266        3 months ago        
 ```
 docker build [OPTIONS] PATH | URL | -
 ```
+实例: 使用当前目录的 Dockerfile 创建镜像，标签为 runoob/ubuntu:v1。
+```
+docker build -t runoob/ubuntu:v1 . 
+```
+使用URL github.com/creack/docker-firefox 的 Dockerfile 创建镜像。
+```
+docker build github.com/creack/docker-firefox
+```
+也可以通过 -f Dockerfile 文件的位置：
+```
+$ docker build -f /path/to/a/Dockerfile .
+```
+在 Docker 守护进程执行 Dockerfile 中的指令前，首先会对 Dockerfile 进行语法检查，有语法错误时会返回：
+```
+$ docker build -t test/myapp .
+Sending build context to Docker daemon 2.048 kB
+Error response from daemon: Unknown instruction: RUNCMD
+```
+### FROM 和 RUN 指令的作用
+FROM：定制的镜像都是基于 FROM 的镜像，这里的 nginx 就是定制需要的基础镜像。后续的操作都是基于 nginx。
+
+RUN：用于执行后面跟着的命令行命令。有以下俩种格式：
+
+shell 格式：
+```
+RUN <命令行命令> # <命令行命令> 等同于，在终端操作的 shell 命令。
+```
+exec 格式：
+```
+RUN ["可执行文件", "参数1", "参数2"]
+# 例如：
+# RUN ["./test.php", "dev", "offline"] 等价于 RUN ./test.php dev offline
+```
+注意：Dockerfile 的指令每执行一次都会在 docker 上新建一层。所以过多无意义的层，会造成镜像膨胀过大。例如：
+```
+FROM centos
+RUN yum -y install wget
+RUN wget -O redis.tar.gz "http://download.redis.io/releases/redis-5.0.3.tar.gz"
+RUN tar -xvf redis.tar.gz
+```
+以上执行会创建 3 层镜像。可简化为以下格式：
+```
+FROM centos
+RUN yum -y install wget \
+    && wget -O redis.tar.gz "http://download.redis.io/releases/redis-5.0.3.tar.gz" \
+    && tar -xvf redis.tar.gz
+```
+如上，以 && 符号连接命令，这样执行后，只会创建 1 层镜像。
+### 开始构建镜像
+在 Dockerfile 文件的存放目录下，执行构建动作。
+
+以下示例，通过目录下的 Dockerfile 构建一个 nginx:v3（镜像名称:镜像标签）。
+
+注：最后的 . 代表本次执行的上下文路径，下一节会介绍。
+```
+$ docker build -t nginx:v3 .
+```
+### 上下文路径
+上一节中，有提到指令最后一个 . 是上下文路径，那么什么是上下文路径呢？
+```
+$ docker build -t nginx:v3 .
+```
+上下文路径，是指 docker 在构建镜像，有时候想要使用到本机的文件（比如复制），docker build 命令得知这个路径后，会将路径下的所有内容打包。
+
+解析：由于 docker 的运行模式是 C/S。我们本机是 C，docker 引擎是 S。实际的构建过程是在 docker 引擎下完成的，所以这个时候无法用到我们本机的文件。这就需要把我们本机的指定目录下的文件一起打包提供给 docker 引擎使用。
+
+如果未说明最后一个参数，那么默认上下文路径就是 Dockerfile 所在的位置。
+
+注意：上下文路径下不要放无用的文件，因为会一起打包发送给 docker 引擎，如果文件过多会造成过程缓慢。
+
+### Dockerfile实例
+```
+FROM centos:7.6.1810
+
+COPY openGauss-5.0.0-CentOS-64bit.tar.bz2 .
+COPY gosu-amd64 /usr/local/bin/gosu
+
+ENV LANG en_US.utf8
+
+#RUN yum install -y epel-release
+
+RUN set -eux; \
+    yum install -y bzip2 bzip2-devel curl libaio&& \
+    groupadd -g 70 omm;  \
+    useradd -u 70 -g omm -d /home/omm omm;  \
+    mkdir -p /var/lib/opengauss && \
+    mkdir -p /usr/local/opengauss && \
+    mkdir -p /var/run/opengauss  && \
+    mkdir /docker-entrypoint-initdb.d && \
+    tar -jxf openGauss-5.0.0-CentOS-64bit.tar.bz2 -C /usr/local/opengauss && \
+    chown -R omm:omm /var/run/opengauss && chown -R omm:omm /usr/local/opengauss && chown -R omm:omm /var/lib/opengauss &&  chown -R omm:omm /docker-entrypoint-initdb.d && \
+    chmod 2777 /var/run/opengauss && \
+    rm -rf openGauss-5.0.0-CentOS-64bit.tar.bz2 && yum clean all
+
+RUN set -eux; \
+    echo "export GAUSSHOME=/usr/local/opengauss"  >> /home/omm/.bashrc && \
+    echo "export PATH=\$GAUSSHOME/bin:\$PATH " >> /home/omm/.bashrc && \
+    echo "export LD_LIBRARY_PATH=\$GAUSSHOME/lib:\$LD_LIBRARY_PATH" >> /home/omm/.bashrc
+
+ENV GOSU_VERSION 1.12
+RUN set -eux; \
+     chmod +x /usr/local/bin/gosu
+
+
+ENV PGDATA /var/lib/opengauss/data
+
+COPY entrypoint.sh /usr/local/bin/
+RUN chmod 755 /usr/local/bin/entrypoint.sh;ln -s /usr/local/bin/entrypoint.sh / # backwards compat
+
+ENTRYPOINT ["entrypoint.sh"]
+
+EXPOSE 5432
+CMD ["gaussdb"]
+```
