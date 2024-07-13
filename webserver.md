@@ -84,7 +84,102 @@ ET模式 效率要比 LT模式高, 小数据使用边沿触发，大数据使用
 3. **提高线程的可管理性**。线程是稀缺资源，如果无限制的创建，不仅会消耗系统资源，还会降低系统的稳定性，使用线程池可以进行统一的分配，调优和监控。
 
 **如何创建线程池：**
+```cpp
+#include <condition_variable>
+#include <functional>
+#include <iostream>
+#include <mutex>
+#include <queue>
+#include <thread>
+#include <vector>
+using namespace std;
 
+class ThreadPool {
+public:
+  ThreadPool(int threadnum) : started(false), thread_num(threadnum) {}
+
+  ~ThreadPool() {
+    stop();
+    for (int i = 0; i < thread_num; ++i) {
+      if (threadlist[i]->joinable()) {
+        threadlist[i]->join();
+      }
+      delete threadlist[i];
+    }
+    threadlist.clear();
+  }
+
+  void threadFunc() {
+    while (true) {
+      std::function<void()> task;
+      {
+        std::unique_lock<std::mutex> lock(queueMutex);
+        condition.wait(lock, [this] { return !tasks.empty() || !started; });
+        if (!started && tasks.empty())
+          return;
+        task = std::move(tasks.front());
+        tasks.pop();
+      }
+      task();
+    }
+  }
+
+  int getThreadNum() { return thread_num; }
+
+  void start() {
+    if (thread_num > 0) {
+      started = true;
+      for (int i = 0; i < thread_num; ++i) {
+        thread *pthread = new thread(&ThreadPool::threadFunc, this);
+        threadlist.push_back(pthread);
+      }
+    }
+  }
+
+  void stop() {
+    started = false;
+    condition.notify_all();
+  }
+
+  //   template <class F> void addTask(F &&f) {
+  //     {
+  //       std::lock_guard<std::mutex> lock(queueMutex);
+  //       tasks.emplace(std::forward<F>(f));
+  //     }
+  //     condition.notify_one();
+  //   }
+  void addTask(std::function<void()> f) {
+    {
+      std::lock_guard<std::mutex> lock(queueMutex);
+      tasks.emplace(std::move(f));
+    }
+    condition.notify_one();
+  }
+
+private:
+  int thread_num;
+  bool started;
+  vector<thread *> threadlist;
+  condition_variable condition;
+  queue<function<void()>> tasks;
+  mutex queueMutex;
+};
+
+int main() {
+  // 创建一个包含4个工作线程的线程池
+  ThreadPool pool(4);
+  pool.start();
+  // 向线程池中添加了8个任务，每个任务都会输出一条信息
+  for (int i = 0; i < 8; ++i) {
+    pool.addTask([] {
+      std::cout << "Task executed by thread: " << std::this_thread::get_id()
+                << std::endl;
+    });
+  }
+
+  return 0;
+}
+```
 
 ## 7.  服务器工作方式
 - 这个项目主要的目的是对临床客户端的上传的皮肤镜图像进行解析处理，处理完之后将远程分析结果返回给客户端，如分割后的皮肤镜图像和一些评价指标。
