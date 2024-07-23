@@ -173,8 +173,16 @@ root      28245  0.0  0.0  30812  4824 ?        Ss   10:49   0:00 sshd: develop@
 root     127830  0.0  0.0  24084  4320 ?        Ss   Jul19   0:00 sshd: /usr/sbin/sshd -D -e -E /opt/nsfocus/log/sshd/sshd.log [listener] 0 of 10-60 startups
 
 ```
+## pstree
+## perf
 ## grep命令
 ## awk命令
+## tcpdump
+## chmod
+## tee
+## find
+## which
+## whereis
 ## cat命令
 ### 实例
 查看文件内容：显示文件 filename 的内容。
