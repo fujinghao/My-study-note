@@ -210,3 +210,109 @@ cat filename | tail -n 10
 ```
 cat -n filename # 使用cat -b选项则仅显示非空行的行号
 ```
+## du
+```
+-a或-all 显示目录中个别文件的大小。
+-h或--human-readable 以K，M，G为单位，提高信息的可读性。
+-s或--summarize 仅显示指定目录或文件的总大小，而不显示其子目录的大小。。
+--exclude=<目录或文件> 略过指定的目录或文件。
+--max-depth=<目录层数> 超过指定层数的目录后，予以忽略。
+```
+
+```
+[fujinghao@74205a35316a ~]$ ls
+client-odbc          inotify                    odbc                            openGauss-connector-odbc-5.0.0.zip  self-security-suite.v1.0      study     tmp
+client-psycopg2      inotify-tools-3.13         odbc-sor                        psutil-6.0.0                        self-security-suite.v1.0.tar  template  xl2tpd-1.1.11
+client-psycopg2.tar  inotify-tools-3.13.tar.gz  openGauss-connector-odbc-5.0.0  psutil-6.0.0.tar.gz                 server-5.0.1                  test
+```
+
+```
+[fujinghao@74205a35316a ~]$ du -sh
+6.7G    .
+```
+
+```
+[fujinghao@74205a35316a ~]$ du -sh *
+88M     client-odbc
+41M     client-psycopg2
+12M     client-psycopg2.tar
+4.0K    inotify
+1.8M    inotify-tools-3.13
+384K    inotify-tools-3.13.tar.gz
+9.9M    odbc
+4.0K    odbc-sor
+101M    openGauss-connector-odbc-5.0.0
+4.2M    openGauss-connector-odbc-5.0.0.zip
+5.7M    psutil-6.0.0
+500K    psutil-6.0.0.tar.gz
+10M     self-security-suite.v1.0
+8.7M    self-security-suite.v1.0.tar
+2.9G    server-5.0.1
+16K     study
+344K    template
+20K     test
+3.5G    tmp
+664K    xl2tpd-1.1.11
+```
+
+```
+[fujinghao@74205a35316a ~]$ du -ah test/
+12K     test/test
+4.0K    test/test.c
+20K     test/
+```
+
+```
+[fujinghao@74205a35316a ~]$ du -sh test/
+20K     test/
+```
+
+```
+[fujinghao@74205a35316a ~]$ du -sh server-5.0.1/*
+4.0K    server-5.0.1/add_empty_dir.sh
+401M    server-5.0.1/gauss_arm
+326M    server-5.0.1/gauss_x86
+4.0K    server-5.0.1/nsbuild.json
+4.0K    server-5.0.1/nsecos_svn.info
+4.0K    server-5.0.1/README.md
+```
+
+```
+[fujinghao@74205a35316a ~]$ du -sh server-5.0.1/* --exclude=server-5.0.1/gauss_arm
+4.0K    server-5.0.1/add_empty_dir.sh
+326M    server-5.0.1/gauss_x86
+4.0K    server-5.0.1/nsbuild.json
+4.0K    server-5.0.1/nsecos_svn.info
+4.0K    server-5.0.1/README.md
+[fujinghao@74205a35316a ~]$ du -ah server-5.0.1/* --max-depth=1
+4.0K    server-5.0.1/add_empty_dir.sh
+4.0K    server-5.0.1/gauss_arm/prepare_chroot.sh
+4.0K    server-5.0.1/gauss_arm/prepare_start.sh
+4.0K    server-5.0.1/gauss_arm/start_gauss_db.sh
+401M    server-5.0.1/gauss_arm/gauss
+4.0K    server-5.0.1/gauss_arm/stop_gauss_db.sh
+4.0K    server-5.0.1/gauss_arm/remove_gauss.sh
+401M    server-5.0.1/gauss_arm
+326M    server-5.0.1/gauss_x86/gauss
+326M    server-5.0.1/gauss_x86
+4.0K    server-5.0.1/nsbuild.json
+4.0K    server-5.0.1/nsecos_svn.info
+4.0K    server-5.0.1/README.md
+```
+
+```
+[fujinghao@74205a35316a lib]$ du -sh * | sort -hr
+17M     postgresql
+5.1M    libdssapi.so
+4.7M    libdms.so
+4.3M    libxgboost.so
+2.8M    libcrypto.so.1.1
+2.8M    libcrypto.so
+2.0M    libpq_ce.so.5.5
+1.5M    libxml2.so.2.9.13
+1.5M    libxml2.so.2
+1.5M    libxml2.so
+1.5M    libstdc++.so.6
+1008K   libkrb5_gauss.so.3.3
+972K    libiconv.so.2.6.1
+```
