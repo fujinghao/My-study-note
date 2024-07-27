@@ -257,35 +257,35 @@ weak_ptr可以从一个shared_ptr或者另一个weak_ptr对象构造，获得资
 静态成员函数与静态数据成员一样，都是类的内部实现，属于类定义的一部分。它无法访问属于类对象的非静态数据成员，也无法访问非静态成员函数，它只能调用其余的静态成员函数。
 
 ```cpp
-class Myclass
-{
+#include <iostream>
+using namespace std;
+class Myclass {
 public:
-　　Myclass(int a,int b,int c);
-　　static void GetSum();/声明静态成员函数
-private:
-　　int a,b,c;
-　　 static int Sum;//声明静态数据成员
+    Myclass(int a, int b, int c);
+    static void GetSum();
+// 声明静态成员函数 
+private :
+    int a, b, c;
+    static int Sum; //声明静态数据成员
 };
-int Myclass::Sum=0;//定义并初始化静态数据成员
-Myclass::Myclass(int a,int b,int c)
-{
-　　this->a=a;
-　　this->b=b;
-　　this->c=c;
-　　Sum+=a+b+c; //非静态成员函数可以访问静态数据成员
+int Myclass::Sum = 0; //定义并初始化静态数据成员
+Myclass::Myclass(int a, int b, int c) {
+	this->a = a;
+	this->b = b;
+	this->c = c;
+	Sum += a + b + c; //非静态成员函数可以访问静态数据成员
 }
 void Myclass::GetSum() //静态成员函数的实现
 {
-　　// cout<<a<<endl; //错误代码，a是非静态数据成员
-　　cout<<"Sum="<<Sum<<endl;
+	// cout<<a<<endl; //错误代码，a是非静态数据成员
+	cout << "Sum=" << Sum << endl;
 }
-void main()
-{
-　　Myclass M(1,2,3);
-　　M.GetSum();
-　　Myclass N(4,5,6);
-　　N.GetSum();
-　　Myclass::GetSum();
+int main() {
+	Myclass M(1, 2, 3);
+	M.GetSum();//Sum=6
+	Myclass N(4, 5, 6);
+	N.GetSum();//Sum=21
+	Myclass::GetSum();//Sum=21
 }
 ```
 
