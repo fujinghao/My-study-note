@@ -30,7 +30,7 @@ epoll是Linux特有的IO复用函数，它在实现和使用上与select和poll�
 - epoll_ctl:为红黑树添加 ep_insert、移除 ep_remove、修改 ep_modify 节点的操作，每个节点就是一个描述符和事件的结构体，数据结构如：struct epitem;
 - epoll_wait:负责收集就绪事件.当关注的描述符上有事件就绪,就会调用回调函数(ep_poll_callback)，把**对应 fd 的结构体**放入就绪队列中，从而把 epoll 从 epoll_wait处唤醒。
 
- 1int range = min(A_right, B_right) - max(A_left, B_left) cpp
+**epoll的优缺点：**
 
 - 本身没有最大并发连接的限制，仅受系统中进程能打开的最大文件数目限制（65535);
 - 采用回调方式来检测就绪事件，算法时间复杂度为O(1)。
