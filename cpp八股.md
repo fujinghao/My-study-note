@@ -2,6 +2,47 @@
 
 回调函数可以被简单地理解为：A函数作为参数传递给B函数，然后B函数在执行的某一时刻调用A函数。这里的A函数就是回调函数。
 
+回调处理网络请求示例:
+
+```cpp
+#include <iostream>
+#include <thread>
+#include <functional>
+#include <chrono>
+ 
+// 模拟网络请求函数，接受一个回调函数
+void asyncNetworkRequest(std::function<void(const std::string&)> callback) {
+    std::this_thread::sleep_for(std::chrono::seconds(2)); // 模拟网络延迟
+    std::string response = "Server response data";
+    callback(response); // 调用回调函数并传递响应数据
+}
+ 
+// 回调函数
+void onRequestCompleted(const std::string& response) {
+    std::cout << "Network request completed with response: " << response << std::endl;
+}
+ 
+int main() {
+    std::cout << "Sending network request..." << std::endl;
+    
+    // 异步发送网络请求，并传递回调函数
+    std::thread requestThread(asyncNetworkRequest, onRequestCompleted);
+    
+    std::cout << "Doing other work while waiting for network response..." << std::endl;
+    
+    // 主线程可以继续做其他工作
+    std::this_thread::sleep_for(std::chrono::seconds(1));
+    std::cout << "Still doing other work..." << std::endl;
+    
+    // 等待网络请求完成
+    requestThread.join(); // 等待线程完成
+    
+    return 0;
+}
+```
+
+
+
 ## 2.  C++的多态？
 
 **多态的概念：**通俗来讲，多态就是多种形态，具体来讲，就是去完成某个行为，当不同的对象去完成时会产生不同的状态。当基类指针指向子类对象时候，虚函数能实现运行时多态（多态指：同一个接口的不同实现方式）
@@ -167,9 +208,57 @@ int main()
 
 ## 5.  智能指针
 
+C++11 中引入了智能指针（Smart Pointer），它利用了一种叫做 RAII（资源获取即初始化）的技术将普通的指针封装为一个**栈对象**。当栈对象的**生存周期**结束后，会在析构函数中释放掉申请的内存，从而防止内存泄漏。这使得**智能指针实质是一个对象**，行为表现的却像一个指针。
+
 ### 1. unique_ptr
 
-unique_ptr 之所以叫这个名字，是因为它**只能指向一个对象**，即当它指向其他对象时，之前所指向的对象会被摧毁。其次，当 unique_ptr 超出作用域时，指向的对象也会被自动摧毁，帮助程序员实现了自动释放的功能。
+1. 基于排他所有权模式：两个指针不能指向同一个资源
+2. 无法进行左值unique_ptr复制构造，也无法进行左值复制赋值操作，但允许临时右值赋值构造和赋值
+3. 保证指向某个对象的指针，当它本身离开作用域时会自动释放它指向的对象。
+4. 在容器中保证指针是安全的无法进行左值复制赋值操作，但允许临时右值赋值构造和赋值
+
+**无法进行左值复制赋值操作，但允许临时右值赋值构造和赋值:**
+
+```cpp
+unique_ptr<string> p1(new string("I'm Li Ming!"));
+unique_ptr<string> p2(new string("I'm age 22."));
+	
+cout << "p1：" << p1.get() << endl;
+cout << "p2：" << p2.get() << endl;
+
+p1 = p2;					// 禁止左值赋值
+unique_ptr<string> p3(p2);	// 禁止左值赋值构造
+
+unique_ptr<string> p3(std::move(p1));
+p1 = std::move(p2);	// 使用move把左值转成右值就可以赋值了，效果和auto_ptr赋值一样
+
+cout << "p1 = p2 赋值后：" << endl;
+cout << "p1：" << p1.get() << endl;
+cout << "p2：" << p2.get() << endl;
+```
+
+**在 STL 容器中使用unique_ptr，不允许直接赋值:**
+
+```cpp
+vector<unique_ptr<string>> vec;
+unique_ptr<string> p3(new string("I'm P3"));
+unique_ptr<string> p4(new string("I'm P4"));
+
+vec.push_back(std::move(p3));
+vec.push_back(std::move(p4));
+
+cout << "vec.at(0)：" << *vec.at(0) << endl;
+cout << "vec[1]：" << *vec[1] << endl;
+
+vec[0] = vec[1];	/* 不允许直接赋值 */
+vec[0] = std::move(vec[1]);		// 需要使用move修饰，使得程序员知道后果
+
+cout << "vec.at(0)：" << *vec.at(0) << endl;
+cout << "vec[1]：" << *vec[1] << endl;
+
+```
+
+
 
 ### 2. shared_ptr
 
@@ -297,3 +386,33 @@ int main() {
 - 由于没有this指针的额外开销，因此静态成员函数与类的全局函数相比速度上会有少许的增长；
 - 调用静态成员函数，可以用成员访问操作符(.)和(->)为一个类的对象或指向类对象的指针调用静态成员函数，也可以直接使用如下格式：
 ＜类名＞::＜静态成员函数名＞（＜参数表＞）调用类的静态成员函数。
+
+## 7. STL
+
+### 7.1顺序容器中的at()和[]
+
+如果stl非空，那么at和下标索引没有区别。如果v为空，调用at会抛出异常，而operator[]索引的行为未定义。c++标准不要求operator[]进行下标越界检查，原因是为了效率，下标越界检查会增加程序的性能开销。
+
+```cpp
+int main() {
+    vector<int> vec;
+    cout<<vec[0];//Segmentation fault
+    cout<<vec.at(0);
+    /*terminate called after throwing an instance of 'std::out_of_range'
+  what():  vector::_M_range_check: __n (which is 0) >= this->size() (which is 0)
+Aborted*/
+}
+int main() {
+    vector<int> vec = {1};
+    cout<<vec[1];//打印出0
+    cout<<vec.at(1);
+    /*terminate called after throwing an instance of 'std::out_of_range'
+  what():  vector::_M_range_check: __n (which is 1) >= this->size() (which is 1)
+Aborted*/
+}
+```
+
+## 8.左值和右值
+
+## 9.仿函数
+
