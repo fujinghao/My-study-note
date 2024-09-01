@@ -23,7 +23,7 @@ netstat -tunlp | grep 端口号
 tcp        0      0 0.0.0.0:8000            0.0.0.0:*               LISTEN      26993/nodejs   
 ```
 
-## losf命令
+## lsof命令
 
 ```bash
 lsof -i:8080：查看8080端口占用

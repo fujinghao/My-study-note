@@ -162,4 +162,40 @@ int main() {
   return 0;
 }
 ```
+## 无锁循环打印AB(原子操作)
 
+```cpp
+#include <iostream>
+#include <thread>
+#include <atomic>
+
+std::atomic<bool> flag(false);
+
+void printA() {
+    while (true) {
+        while (flag.load());
+        std::cout << "A" << std::endl;
+        flag = true;
+    }
+}
+
+void printB() {
+    while (true) {
+        while (!flag.load());
+        std::cout << "B" << std::endl;
+        flag = false;
+    }
+}
+
+int main() {
+    std::thread t1(printA);
+    std::thread t2(printB);
+
+    t1.detach();
+    t2.detach();
+
+    while (true);
+
+    return 0;
+}
+```
