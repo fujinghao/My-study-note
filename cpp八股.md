@@ -412,8 +412,138 @@ Aborted*/
 }
 ```
 
-## 8.左值和右值
-左值是可以取地址的值，或者说是具有名称的值。这两个说法本质上是一个意思，高级语言中的变量名其实就是汇编语言中的地址，我们通过变量名获取变量值的过程本质上就是通过变量地址获取变量值的过程（被const修饰的变量名例外, 它在汇编里是以立即数表示的）。
+## 8. 深拷贝和浅拷贝，左值和右值，移动构造函数，移动语义，完美转发
+### 8.1 深拷贝和浅拷贝
+示例：
+```cpp
+class Vector{
+    int num;
+    int* a;
+public:
+    void ShallowCopy(Vector& v);
+    void DeepCopy(Vector& v);
+};
+```
+浅拷贝：只复制指向某个对象的指针，而不复制对象本身，新旧对象还是共享同一块内存（只是增加了一个指针指向已存在的内存地址）。
+```cpp
+//浅拷贝
+void Vector::ShallowCopy(Vector& v){
+    this->num = v.num;
+    this->a = v.a;
+}
+
+```
+深拷贝：会另外创造一个一模一样的对象，新对象跟原对象不共享内存，修改新对象不会改到原对象（增加了一个指针并且申请了一个新的内存，使这个增加的指针指向这个新的内存）。
+```cpp  
+//深拷贝
+void Vector::DeepCopy(Vector& v){
+    this->num = v.num;
+    this->a = new int[num];
+    for(int i=0;i<num;++i){a[i]=v.a[i]}
+}
+
+```
+
+### 8.2 左值和右值
+- 左值（lvalue） ：表达式结束后依然存在的持久对象，可以取地址。
+- 左值引用（lvalue reference） ：“&”表示的引，左值引用只能绑定到左值，不能绑定到右值。
+- 右值（rvalue） ：表达式结束后就不再存在的临时对象，不能取地址。字面量（字符字面量除外）、临时的表达式值、临时的函数返还值这些短暂存在的值都是右值。
+- 右值引用（rvalue reference） ：“&&”表示的引用，右值引用只能绑定到右值，不能绑定到左值。
+```cpp
+//左值引用形参=>匹配左值
+void Vector::Copy(Vector& v){
+    this->num = v.num;
+    this->a = new int[num];
+    for(int i=0;i<num;++i){a[i]=v.a[i]}
+}
+
+//右值引用形参=>匹配右值
+void Vector::Copy(Vector&& temp){
+    this->num = temp.num;
+    this->a = temp.a;
+}
+```
+### 8.3 移动构造函数
+C++11引入了移动构造函数，默认**移动**构造函数会执行浅拷贝操作，与**拷贝**构造函数不同的是，在拷贝结束后，移动构造函数会把源对象内的指针置空。移动构造函数的目的是为了提高效率，减少内存拷贝的次数，提高程序的性能。
+```cpp
+//拷贝构造函数：这意味着深拷贝
+Vector::Vector(Vector& v){
+    this->num = v.num;
+    this->a = new int[num];
+    for(int i=0;i<num;++i){a[i]=v.a[i]}
+}
+//移动构造函数：这意味着浅拷贝
+Vector::Vector(Vector&& temp){
+    this->num = temp.num;
+    this->a = temp.a;
+    temp.a = nullptr;    //实际上Vector一般都会在析构函数来释放指向的内存，所以需赋值空地址避免释放
+}
+```
+
+### 8.4 移动语义(std::move)
+为了将某些左值当成右值使用，C++11 提供了 std::move 函数以用于将某些左值转成右值，以匹配右值引用类型。主要用于调用移动构造函数和移动赋值函数。
+```cpp
+void func(){
+    Vector result;
+    Vector ans(std::move(result));  //调用移动构造函数
+    Vector ans2(result);            //调用拷贝构造函数
+    return;
+}
+```
+### 8.5 完美转发
+完美转发是C++11引入的一种技术，用于在模板函数中保持参数的值类别（左值或右值）不变地传递给另一个函数。完美转发的主要目的是避免不必要的拷贝和移动操作，从而提高程序的性能。
+#### 8.5.1 万能引用
+C++11中引入了右值引用，但是右值引用只能绑定到右值，为了解决这个问题，C++11引入了万能引用，也叫做转发引用，它是一种特殊的引用类型，可以同时绑定左值和右值。
+```cpp  
+template<typename T>
+void func(T&& t){
+    return;
+}
+int main() {
+    Vector a,b;
+	func(a);                //OK
+	func(std::move(b));     //OK
+}
+``` 
+#### 8.5.2 引用折叠
+引用折叠是C++11中引入的一种规则，用于解决万能引用的问题。引用折叠规则如下：
+- T& & 折叠为 T&
+- T& && 折叠为 T&
+- T&& & 折叠为 T&
+- T&& && 折叠为 T&&
+
+简单来说，任何类型的引用与左值引用组合时，结果都是左值引用；只有右值引用与右值引用组合时，结果才是右值引用。
+#### 8.5.3 std::forward
+std::forward是一个用于完美转发的函数，它可以将传入的参数原封不动的传递给下一个函数，不会丢失参数的左值或右值属性。
+```cpp
+#include <iostream>
+#include <utility> // std::forward
+
+// 一个简单的函数，用于展示参数的值类别
+void process(int& x) {
+    std::cout << "Lvalue reference: " << x << std::endl;
+}
+
+void process(int&& x) {
+    std::cout << "Rvalue reference: " << x << std::endl;
+}
+
+// 使用万能引用和完美转发的模板函数
+template<typename T>
+void forwarder(T&& arg) {
+    process(std::forward<T>(arg));
+}
+
+int main() {
+    int a = 10;
+    forwarder(a);        // 传递左值
+    forwarder(20);       // 传递右值
+    forwarder(std::move(a)); // 传递右值
+
+    return 0;
+}
+```
+
 
 
 ## 9.仿函数
