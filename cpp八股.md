@@ -206,7 +206,7 @@ int main()
 
 3. 根据找到的虚函数的地址调用虚函数。
 
-## 5.  智能指针
+## 5. 智能指针(C++11)
 
 C++11 中引入了智能指针（Smart Pointer），它利用了一种叫做 RAII（资源获取即初始化）的技术将普通的指针封装为一个**栈对象**。当栈对象的**生存周期**结束后，会在析构函数中释放掉申请的内存，从而防止内存泄漏。这使得**智能指针实质是一个对象**，行为表现的却像一个指针。
 
@@ -412,7 +412,7 @@ Aborted*/
 }
 ```
 
-## 8. 深拷贝和浅拷贝，左值和右值，移动构造函数，移动语义，完美转发
+## 8. 深拷贝和浅拷贝，左值和右值，移动构造函数，移动语义，完美转发 (c++11)
 ### 8.1 深拷贝和浅拷贝
 示例：
 ```cpp
@@ -490,7 +490,7 @@ void func(){
     return;
 }
 ```
-### 8.5 完美转发
+### 8.5 完美转发 (C++11)
 完美转发是C++11引入的一种技术，用于在模板函数中保持参数的值类别（左值或右值）不变地传递给另一个函数。完美转发的主要目的是避免不必要的拷贝和移动操作，从而提高程序的性能。
 #### 8.5.1 万能引用
 C++11中引入了右值引用，但是右值引用只能绑定到右值，为了解决这个问题，C++11引入了万能引用，也叫做转发引用，它是一种特殊的引用类型，可以同时绑定左值和右值。
@@ -544,8 +544,92 @@ int main() {
 }
 ```
 
+## 9.仿函数（C++11）
+仿函数又称为函数对象, 是一个能行使函数功能的类，它通过重载 operator() 运算符来实现。
+**优点**：有时候我们希望在函数中存储一些的状态，并在调用中使用这些状态，按照以往的经验，我们可以考虑如下可能途径：
+- 局部变量：只能在这个函数内部修改，不能在调用的地方传入，可拓展性不强
+- 全局变量：会污染全局命名空间，不利于维护
+- 函数传参：某些情况下可能不适用。
+- 成员变量：仿函数通过将状态存储为类的成员变量，并通过构造函数传递参数，实现了状态的灵活管理和使用。
+```cpp
+#include <iostream>
 
+// 普通函数
+int multiply(int a, int b) {
+    return a * b;
+}
 
-## 9.仿函数
+// 仿函数类
+class Multiplier {
+public:
+    // 构造函数，初始化状态
+    Multiplier(int factor) : factor(factor) {}
 
-## 
+    // 重载 operator() 运算符
+    int operator()(int a, int b) const {
+        return a * b * factor; // 使用存储的状态
+    }
+
+private:
+    int factor; // 存储状态
+};
+
+int main() {
+    // 使用普通函数
+    int result1 = multiply(3, 4);
+    std::cout << "Result using normal function: " << result1 << std::endl;
+
+    // 使用仿函数
+    Multiplier multiplier(2); // 创建仿函数对象，并初始化状态为2
+    int result2 = multiplier(3, 4); // 像调用函数一样使用仿函数对象
+    std::cout << "Result using functor: " << result2 << std::endl; // 输出结果
+
+    // 改变仿函数的状态
+    Multiplier multiplier3(3); // 创建另一个仿函数对象，并初始化状态为3
+    int result3 = multiplier3(3, 4); // 使用新的仿函数对象
+    std::cout << "Result using functor with different state: " << result3 << std::endl; // 输出结果
+
+    return 0;
+}
+```
+## 10. lambda表达式（C++11）
+lambda表达式是C++11引入的一种新特性，利用lambda表达式可以编写内嵌的匿名函数，用以替换独立函数或者函数对象，并且使代码更可读。
+使用匿名函数的好处：
+- 代码更加简洁，不需要额外定义一个函数
+- 可以捕获外部变量，使得函数更加灵活
+
+lambda表达式的语法如下：
+```cpp
+[capture list] (parameter list) -> return type { function body }
+```
+- capture list：捕获列表，用于捕获外部变量。[] 表示不捕获任何外部变量，[&] 表示以引用的方式捕获所有外部变量，[=] 表示以值的方式捕获所有外部变量，[a, &b] 表示以值的方式捕获 a 变量，以引用的方式捕获 b 变量。[this] 表示捕获当前对象中的所有成员变量。
+- parameter list：参数列表，用于传递参数
+- return type：返回类型，用于指定返回类型
+- function body：函数体，用于编写函数的具体逻辑
+## 11. nullptr(C++11)
+nullptr是C++11引入的新关键字，用于表示空指针。
+**优点**：
+- 类型安全：nullptr 的类型是 std::nullptr_t，它只能转换为指针类型或 bool 类型，不能转换为整数类型。这确保了类型安全，避免了将空指针误用为整数的情况。
+- 避免歧义：在函数重载和模板编程中，使用 nullptr 可以避免将空指针误解为整数，从而减少歧义和错误。
+```cpp
+#include <iostream>
+
+// 函数重载示例
+void foo(int x) {
+    std::cout << "foo(int) called with " << x << std::endl;
+}
+
+void foo(void* ptr) {
+    std::cout << "foo(void*) called" << std::endl;
+}
+
+int main() {
+    // 使用 NULL 或 0 可能导致歧义
+    foo(0); // 调用 foo(int)，而不是 foo(void*)
+
+    // 使用 nullptr 明确表示空指针
+    foo(nullptr); // 调用 foo(void*)
+
+    return 0;
+}
+```
