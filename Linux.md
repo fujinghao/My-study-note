@@ -714,3 +714,12 @@ Total:         9.6Gi       769Mi       8.7Gi
 
 ```
 
+## kill
+  
+  ```shell
+  kill [-signal] PID
+  ```
+kill命令用于终止进程。PID 是进程 ID，signal 是要发送的信号。如果不指定信号，默认发送 TERM 信号。
+
+kill和kill -9的区别：
+kill命令会发送 TERM 信号，而kill -9会发送 KILL 信号。TERM 信号会让进程优雅地退出（SIGTERM信号可以被进程捕获并处理，进程可以选择忽略这个信号而继续运行，或者进行一些特定的操作后再退出），而KILL信号会强制终止进程。
