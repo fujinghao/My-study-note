@@ -411,7 +411,72 @@ int main() {
 Aborted*/
 }
 ```
+### 7.2 顺序容器中的push_back()和emplace_back()
+emplace_back() (C++11)和 push_back() 的区别: push_back() 向容器尾部添加元素时，首先会创建这个元素，然后再将这个元素拷贝或者移动到容器中（如果是拷贝的话，事后会自行销毁先前创建的这个元素）；而 emplace_back() 在实现时，则是直接在容器尾部创建这个元素，省去了拷贝或移动元素的过程。
+```cpp
+#include <vector> 
+#include <iostream> 
+using namespace std;
+class testDemo
+{
+public:
+    testDemo(int num):num(num){
+        std::cout << "调用构造函数" << endl;
+    }
+    testDemo(const testDemo& other) :num(other.num) {
+        std::cout << "调用拷贝构造函数" << endl;
+    }
+    testDemo(testDemo&& other) :num(other.num) {
+        std::cout << "调用移动构造函数" << endl;
+    }
+private:
+    int num;
+};
 
+int main()
+{
+    cout << "emplace_back:" << endl;
+    std::vector<testDemo> demo1;
+    demo1.emplace_back(2);  
+
+    cout << "push_back:" << endl;
+    std::vector<testDemo> demo2;
+    demo2.push_back(2);
+}
+```
+输出结果：
+```cpp
+emplace_back:
+调用构造函数
+push_back:
+调用构造函数
+调用移动构造函数
+```
+在此基础上，将 testDemo 类中的移动构造函数注释掉，再运行程序会发现，运行结果变为：
+```cpp
+emplace_back:
+调用构造函数
+push_back:
+调用构造函数
+调用拷贝构造函数
+```
+由此可以看出，push_back() 在底层实现时，会优先选择调用移动构造函数，如果没有才会调用拷贝构造函数。
+使用emplace_back() 函数可以减少一次拷贝或移动构造的过程，提升容器插入数据的效率。
+### 7.3 vector扩容机制
+vector有两个重要的变量：size和capacity。size表示当前实际存储元素的个数，而capacity表示当前容器在不扩容的情况下最多可以存储的元素个数。当size达到capacity时，vector会重新分配内存，将原有的元素拷贝到新的内存空间中，然后释放原内存空间。
+resize()函数是改变vector的size，而reserve()函数是改变vector的capacity。
+#### 7.3.1 vector扩容为什么是1.5倍或者2倍
+如果新空间大小为旧空间大小+1，也就是边插入边扩容，这样每一次插入都要进行拷贝，时间复杂度为O(n)，效率非常低下。
+如果新空间大小为旧空间大小+k，其中k是一个固定的增量，那么在每次扩容时，新空间的大小会增加k个单位。假设原始空间大小为n，进行m次扩容后，新空间的大小为n + m*k。平摊下来每次插入的时间复杂度还是O(n)，效率非常低下。
+如果新空间大小为旧空间大小的n倍，那么在每次扩容时，新空间的大小会增加n倍。假设原始空间大小为n，进行m次扩容后，新空间的大小为n * n^m = n * n^(m-1) * n = n * 2^m。平摊下来每次插入的时间复杂度为O(1)，效率非常高。
+扩容原理为：申请新空间，拷贝元素，释放旧空间，理想的分配方案是在第N次扩容时如果能复用之前N-1次释放的空间就太好了，如果按照2倍方式扩容，第i次扩容空间大小如下：
+```cpp
+1, 2, 4, 8, 16, 32
+```
+可以看到，每次扩容时，前面释放的空间都不能使用`8 > 1 + 2 + 3`。
+而使用1.5倍（k=1.5）扩容时，在几次扩展以后，可以重用之前的内存空间了。或者说这个数列的增长速度不能超过Fibonacci数.　因为有F(0) +.. +F(n-1) = F(n+1)-1。理论上最好的增长速度是黄金分割比例，即1.618倍。
+#### 7.3.2 vector为什么不原地扩容
+标准库没有原地扩容否则失败的函数，标准库的realloc是尝试原地扩容，否则新开辟一块，然后memcpy，memcpy只能用于POD类型（通俗地讲，一个类、结构、共用体对象或非构造类型对象能通过二进制拷贝（如 memcpy()）后还能保持其数据不变正常使用的就是POD类型的对象。），对于非POD类型，需要调用拷贝构造函数，析构函数，这样就会导致原地扩容失败。
 ## 8. 深拷贝和浅拷贝，左值和右值，移动构造函数，移动语义，完美转发 (c++11)
 ### 8.1 深拷贝和浅拷贝
 示例：

@@ -9,16 +9,17 @@ IO即为网络网络 I/O,多路即为多个tcp连接,复用即为共用一个线
 
 **select大体执行步骤** ：
 
-1. 使用copy_from_user从用户空间拷贝fd_set到内核空间(每次循环都需要要有用户切换内核的开销)
-1. 内核遍历[0,nfds)范围内的每个fd,调用fd所对应的设备驱动poll函数,poll函数可以检测fd的可用流, (读流,写流,异常流),轮询方式O(n)从所有文件描述符查找已经就绪的文件描述符
-1.  io方式返回后,用户要找到就绪描述符,需要遍历所有文件描述符O(n)
+1. 已连接的Socket都放到一个fd_set集合里面, 然后调用 select 函数将文件描述符集合拷贝到内核里，让内核来检查是否有网络事件产生。
+2. 内核遍历[0,nfds)范围内的每个fd,调用fd所对应的设备驱动poll函数,poll函数可以检测fd的可用流, (读流,写流,异常流),轮询方式O(n)从所有文件描述符查找已经就绪的Socket文件描述符。
+3. 接着再把整个文件描述符集合拷贝回用户态里，然后用户态还需要再通过遍历的方法找到可读或可写的 Socket，然后再对其处理。
 
 **select缺点：**
 
-1. 每次调用select，都需要把fd集合从用户态拷贝到内核态，这个开销在fd很多时会很大
-2. 每次调用select都需要在内核遍历传递进来的所有fd，这个开销在fd很多时也很大
+1. 需要进行 2 次「遍历」文件描述符集合，一次是在内核态里，一个次是在用户态里 
+2. 还会发生 2 次「拷贝」文件描述符集合，先从用户空间传入内核空间，由内核修改后，再传出到用户空间中。
 3. select支持的文件描述符数量太小了，默认是1024
 
+select 使用固定长度的 BitsMap（位图），表示文件描述符集合，每个文件描述符对应一个 Bit，当文件描述符对应的 Bit 为 1 时，表示该文件描述符对应的事件发生了，为 0 时表示事件未发生。
 fd_set结构体：
 ```c
 typedef struct {
@@ -104,23 +105,62 @@ int main() {
 ```
 
 ### 2.2 poll
-poll大体执行和select差不多 poll使用pollfd结构类型的数组pollfd将文件描述符和事件类型放在一起,任何事件都可以统一处理,使得api接口简单,而select是3个fd_set,文件描述符并没有与事件类型绑定,仅仅是三个文件描述符集,所以他不能处理更多类型事件。他的最大文件描述符上限也达到了最高，其余和select一样。
+poll使用链表来管理pollfd结构体，突破了 select 的文件描述符个数限制（当然还会受到系统文件描述符限制）。
+而select是3个fd_set,文件描述符并没有与事件类型绑定,仅仅是三个文件描述符集,所以他不能处理更多类型事件。
+但是 poll 和 select 并没有太大的本质区别，都是需要遍历文件描述符集合来找到可读或可写的 Socket，时间复杂度为 O(n)，而且也需要在用户态与内核态之间拷贝文件描述符集合，这种方式随着并发数上来，性能的损耗会呈指数级增长。
+```c
+struct pollfd {
+    int fd; // 文件描述符
+    short events; // 我们感兴趣的事件
+    short revents; // 实际发生了的事件
+};
+```
 ### 2.3 epoll
 
 epoll是Linux特有的IO复用函数，它在实现和使用上与select和poll有很大差异。epoll把用户关心的文件描述符上的事件放在内核上的一个事件表中，从而无须像select和poll那样每次调用都要重复传入文件描述符集合事件表。但epoll需要使用一个额外的文件描述符，来唯一标识内核中这个事件表。
 
 **epoll 功能的实现分了三个系统调用完成：**
 
-- epoll_create:创建内核事件表(epoll 池)用于存放描述符和关注的事件，主要数据结构有： struct eventpoll；其中有两个重要的成员 struct rb_root rbr;和 struct list_head rdllist;前者是一棵**红黑树**，也就是内核事件表，后者是就绪事件存放的队列(**双向链表**)。epoll 池只需要遍历这个就绪链表，就能给用户返回所有已经就绪的 fd 数组；
+- epoll_create:创建内核事件表(epoll 池)用于存放描述符和关注的事件，主要数据结构有： struct eventpoll；其中有两个重要的成员 struct rb_root rbr;和 struct list_head rdllist;前者是一棵**红黑树**，也就是内核事件表(用于存放待检测的描述符)，后者是就绪事件存放的队列(**双向链表**)。epoll 池只需要遍历这个就绪链表，就能给用户返回所有已经就绪的 fd 数组；
 - epoll_ctl:为红黑树添加 ep_insert、移除 ep_remove、修改 ep_modify 节点的操作，每个节点就是一个描述符和事件的结构体，数据结构如：struct epitem;
 - epoll_wait:负责收集就绪事件.当关注的描述符上有事件就绪,就会调用回调函数(ep_poll_callback)，把**对应 fd 的结构体**放入就绪队列中，从而把 epoll 从 epoll_wait处唤醒。
 
+**epoll监视过程**：
+1. epoll 在内核里使用红黑树来跟踪进程所有待监控的文件描述字，把需要监控的 socket 通过 epoll_ctl() 函数加入内核中的红黑树里，而 select/poll 内核里没有类似 epoll 红黑树这种保存所有待检测的 socket 的数据结构，所以 select/poll 每次操作时都传入整个 socket 集合给内核，而 epoll 因为在内核维护了红黑树，可以保存所有待检测的 socket ，所以只需要传入一个待检测的 socket，减少了内核和用户空间大量的数据拷贝和内存分配。
+2. epoll 使用事件驱动的机制，内核里维护了一个链表来记录就绪事件，当某个 socket 有事件发生时，通过回调函数内核会将其加入到这个就绪事件列表中，当用户调用 epoll_wait() 函数时，内核将就绪列表中的数据传入到epoll_event数组，并返回给用户就绪事件的数量，用户通过遍历epoll_event数组来获取就绪事件，而 select/poll 每次操作时都需要遍历整个 socket 集合，效率较低。
+
 **epoll的优缺点：**
 
-- 本身没有最大并发连接的限制，仅受系统中进程能打开的最大文件数目限制（65535);
+- 本身没有最大并发连接的限制，仅受系统中进程能打开的最大文件数目限制（65535）;
 - 采用回调方式来检测就绪事件，算法时间复杂度为O(1)。
 - 如果在并发量低，但socket都比较活跃的情况下，select就不见得比epoll慢了（回调函数触发得过于频繁）。
 - epoll的跨平台性不够用 只能工作在linux下。
+```cpp
+int serverSocket = socket(AF_INET, SOCK_STREAM, 0);
+bind(serverSocket, ...);
+listen(serverSocket, ...)
+
+int epfd = epoll_create(EPOLL_SIZE); //创建epoll句柄
+struct epoll_event event;
+event.events = EPOLLIN;
+event.data.fd = serverSocket;
+epoll_ctl(epoll_fd, EPOLL_CTL_ADD, serverSocket, &event); //将所有需要监听的socket添加到epfd中
+struct epoll_event events[EPOLL_SIZE]; //用于接收就绪事件的数组
+while(1) {
+    int n = epoll_wait(...);
+    for(int i = 0; i < n; i++) {
+        //有新的连接
+        if(events[i].data.fd == serverSocket) {
+            int clientSocket = accept(serverSocket, ...);
+            event.events = EPOLLIN;
+            event.data.fd = clientSocket;
+            epoll_ctl(epoll_fd, EPOLL_CTL_ADD, clientSocket, &event);
+        } else {
+            //处理clientSocket的读写事件
+        }
+    }
+}
+```
 
 ## 3. epoll中水平触发（LT）和边沿触发（ET）的区别？
 
