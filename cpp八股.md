@@ -210,13 +210,14 @@ int main()
 
 C++11 中引入了智能指针（Smart Pointer），它利用了一种叫做 RAII（资源获取即初始化）的技术将普通的指针封装为一个**栈对象**。当栈对象的**生存周期**结束后，会在析构函数中释放掉申请的内存，从而防止内存泄漏。这使得**智能指针实质是一个对象**，行为表现的却像一个指针。
 
-### 1. unique_ptr
+### 5.1. unique_ptr
 
 1. 基于排他所有权模式：两个指针不能指向同一个资源
-2. 无法进行左值unique_ptr复制构造，也无法进行左值复制赋值操作，但允许临时右值赋值构造和赋值
+2. 不能被复制，但可以被移动，这意味着所有权可以转移，但不能共享。无法进行左值unique_ptr复制构造，也无法进行左值复制赋值操作，但允许临时右值赋值构造和赋值
 3. 保证指向某个对象的指针，当它本身离开作用域时会自动释放它指向的对象。
 4. 在容器中保证指针是安全的无法进行左值复制赋值操作，但允许临时右值赋值构造和赋值
 
+#### 5.1.1 使用示例
 **无法进行左值复制赋值操作，但允许临时右值赋值构造和赋值:**
 
 ```cpp
@@ -257,13 +258,199 @@ cout << "vec.at(0)：" << *vec.at(0) << endl;
 cout << "vec[1]：" << *vec[1] << endl;
 
 ```
+#### 5.1.2 手写unique_ptr
+
+```cpp
+#include <iostream>
+
+template<typename T>
+class unique_ptr {
+public:
+    unique_ptr(T* ptr = nullptr) : ptr(ptr) {} //这是类的构造函数，接受一个可选的指针参数ptr，默认值为nullptr。
+
+    ~unique_ptr() {
+        delete ptr; //析构函数
+    }
+
+    unique_ptr(unique_ptr&& other) : ptr(other.ptr) {
+        other.ptr = nullptr; //这是移动构造函数，接受一个右值引用的unique_ptr对象other。它将other的内部指针赋值给当前对象的指针ptr，然后将other的指针置为nullptr，实现资源的转移所有权。
+    }
+
+    unique_ptr& operator=(unique_ptr&& other) {
+        if (this!= &other) {
+            delete ptr;
+            ptr = other.ptr;
+            other.ptr = nullptr;
+        }
+        return *this; //这是移动赋值运算符重载函数。首先检查当前对象是否与传入的对象不是同一个对象。如果不是，先释放当前对象管理的资源，然后将传入对象的指针赋值给当前对象的指针，并将传入对象的指针置为nullptr，实现资源的转移所有权，最后返回当前对象的引用（考虑到多个=的情况）。
+    }
+
+    T& operator*() const {
+        return *ptr; // 这是重载的解引用运算符*。当通过unique_ptr对象使用解引用运算符时，返回内部管理的指针所指向的对象的引用，使得可以像使用原始指针一样访问所指向的对象。
+    }
+
+    T* operator->() const {
+        return ptr; // 这是重载的箭头运算符->。当通过unique_ptr对象使用箭头运算符时，直接返回内部管理的指针，使得可以像使用原始指针一样访问所指向对象的成员。
+    }
+    //释放unique_ptr对资源的所有权，并返回内部管理的指针。它先将内部指针保存到临时变量temp中，然后将内部指针置为nullptr，表示不再管理该资源，最后返回临时变量。
+    T* release() {
+        T* temp = ptr;
+        ptr = nullptr; 
+        return temp;
+    }
+
+    T* get() const {
+        return ptr; //返回内部管理的指针，用于获取当前unique_ptr对象管理的资源的指针。
+    }
+//在类的私有部分，定义了一个成员变量ptr用于存储管理的资源指针。同时，将复制构造函数和复制赋值运算符显式地删除，以确保unique_ptr不能进行复制操作，只能进行移动操作，保证资源的独占性。
+private:
+    T* ptr;
+    unique_ptr(const unique_ptr&) = delete;
+    unique_ptr& operator=(const unique_ptr&) = delete;
+};
+
+int main() {
+    unique_ptr<int> up1(new int(42));
+    std::cout << *up1 << std::endl;
+
+    unique_ptr<int> up2 = std::move(up1);
+    if (up1.get() == nullptr) {
+        std::cout << "up1 is now empty." << std::endl;
+    }
+    std::cout << *up2 << std::endl;
+
+    int* raw_ptr = up2.release();
+    std::cout << "Released pointer value: " << *raw_ptr << std::endl;
+
+    delete raw_ptr;
+
+    return 0;
+}
+```
 
 
 
-### 2. shared_ptr
+### 5.2 shared_ptr
 
 C++智能指针shared_ptr是一种可以自动管理内存的智能指针，它是C++11新增的特性之一。与传统指针不同，shared_ptr可以自动释放所管理的动态分配对象的内存，并避免了手动释放内存的繁琐操作，从而减少了内存泄漏和野指针的出现。
 shared_ptr是一个模板类，通过引用计数器实现多个智能指针共享对一个对象的所有权。每次复制一个shared_ptr对象时，该对象的引用计数器会增加1，当一个shared_ptr对象被销毁时，引用计数器减1，如果引用计数器变为0，则释放所管理的对象的内存。
+#### 5.2.1 使用示例
+```cpp
+// 构造
+shared_ptr<int> up1(new int(10));// int(10) 的引用计数为1
+shared_ptr<int> up2(up1);// 使用智能指针up1构造up2, 此时int(10) 引用计数为2
+// 赋值
+shared_ptrr<int> up1(new int(10));  // int(10) 的引用计数为1
+shared_ptr<int> up2(new int(11));   // int(11) 的引用计数为1
+up1 = up2;	// int(10) 的引用计数减1,计数归零内存释放，up2共享int(11)给up1, int(11)的引用计数为2
+// 主动释放
+shared_ptrr<int> up1(new int(10));
+up1 = nullptr ;	// int(10) 的引用计数减1,计数归零内存释放 
+// 或
+up1 = NULL; // 作用同上 
+//  获取引用计数
+up1.use_count(); // 返回int(10)的引用计数
+// 重置
+p.reset(); // 将p重置为空指针，所管理对象引用计数 减1
+// 交换
+p1.swap(p2); // 交换p1 和p2 管理的对象，原对象的引用计数不变
+```
+
+#### 5.2.2 手写shared_ptr
+```cpp
+#include <iostream>
+
+template<typename T>
+class shared_pointer {
+public:
+//这是类的构造函数，接受一个可选的指针参数ptr，默认值为nullptr。在构造对象时，将传入的指针赋值给内部成员变量ptr，并创建一个新的整数指针ref_count，初始值为 1，表示当前只有一个shared_pointer对象管理这个资源。
+    shared_pointer(T* ptr = nullptr) : ptr(ptr), ref_count(new int(1)) {}
+//这是复制构造函数，接受一个常量引用的shared_pointer对象other。复制构造函数将other的指针和引用计数指针分别赋值给当前对象的指针和引用计数指针，然后增加引用计数，表示现在有多个shared_pointer对象共享同一个资源。
+    shared_pointer(const shared_pointer& other) : ptr(other.ptr), ref_count(other.ref_count) {
+        ++(*ref_count);
+    }
+//这是类的析构函数。当shared_pointer对象被销毁时，析构函数会被自动调用。首先减少引用计数，如果引用计数变为 0，表示没有其他shared_pointer对象在使用该资源，此时释放资源（即删除指针ptr所指向的内存和引用计数指针ref_count）。
+    ~shared_pointer() {
+        if (--(*ref_count) == 0) {
+            delete ptr;
+            delete ref_count;
+        }
+    }
+//这是赋值运算符重载函数。首先检查当前对象是否与传入的对象不是同一个对象。如果不是，先减少当前对象的引用计数，如果引用计数变为 0，则释放资源。然后将传入对象的指针和引用计数指针赋值给当前对象，并增加引用计数。最后返回当前对象的引用。
+    shared_pointer& operator=(const shared_pointer& other) {
+        if (this!= &other) {
+            if (--(*ref_count) == 0) {
+                delete ptr;
+                delete ref_count;
+            }
+            ptr = other.ptr;
+            ref_count = other.ref_count;
+            ++(*ref_count);
+        }
+        return *this;
+    }
+//这个函数用于获取当前资源的引用计数。如果引用计数指针不为nullptr，则返回引用计数的值，否则返回 0。
+    int use_count() const {
+        return ref_count ? *ref_count : 0;
+    }
+//这是重载的解引用运算符*。当通过shared_pointer对象使用解引用运算符时，返回内部管理的指针所指向的对象的引用，使得可以像使用原始指针一样访问所指向的对象。
+    T& operator*() const {
+        return *ptr;
+    }
+//这是重载的箭头运算符->。当通过shared_pointer对象使用箭头运算符时，直接返回内部管理的指针，使得可以像使用原始指针一样访问所指向对象的成员。
+    T* operator->() const {
+        return ptr;
+    }
+//在类的私有部分，定义了一个成员变量ptr用于存储管理的资源指针，以及一个整数指针ref_count用于存储资源的引用计数。
+private:
+    T* ptr;
+    int* ref_count;
+};
+
+int main() {
+    shared_pointer<int> p1(new int(10));
+    shared_pointer<int> p2 = p1;
+    shared_pointer<int> p3 = p1;
+    std::cout << p1.use_count() << std::endl;
+    std::cout << p2.use_count() << std::endl;
+    std::cout << p3.use_count() << std::endl;
+    return 0;
+}
+```
+#### 5.2.3 循环引用问题
+循环引用通常发生在两个对象互相持有对方的shared_ptr引用时。例如，如果类A中包含指向类B的shared_ptr，而类B中也包含指向类A的shared_ptr，那么这两个对象就会相互保持引用，导致它们的引用计数无法减少到零，从而无法触发析构函数释放资源。
+为了解决循环引用问题，可以使用weak_ptr，这是一种不增加引用计数的智能指针。weak_ptr允许你引用一个由shared_ptr管理的对象，但不会对其引用计数产生影响。当shared_ptr的引用计数降到零时，即使还有weak_ptr指向该对象，对象也会被销毁。
+```cpp
+#include <memory>
+#include <iostream>
+
+class B; // 前向声明
+
+class A {
+public:
+    std::shared_ptr<B> m_b;
+    ~A() {
+        std::cout << "~A()" << std::endl;
+    }
+};
+
+class B {
+public:
+    std::weak_ptr<A> m_a; // 使用weak_ptr代替shared_ptr
+    ~B() {
+        std::cout << "~B()" << std::endl;
+    }
+};
+
+int main() {
+    std::shared_ptr<A> a(new A);
+    std::shared_ptr<B> b(new B);
+    a->m_b = b;
+    b->m_a = a;
+    // 当main函数结束时，a和b的引用计数都会降到零，触发析构函数
+}
+```
+
 
 ### 3. weak_ptr
 std::weak_ptr 是一种智能指针，通常不单独使用，只能和 shared_ptr 类型指针搭配使用，可以视为 shared_ptr 指针的一种辅助工具。
@@ -698,3 +885,7 @@ int main() {
     return 0;
 }
 ```
+## explicit关键字
+在 C++ 中，explicit 是一个关键字，用于修饰构造函数(作用于单个参数的构造函数，因为无参构造函数和多参构造函数本身就是显示调用的。再加上explicit关键字也没有什么意义)。它的主要作用是防止该构造函数用于隐式转换。
+## noexcept关键字
+noexcept 是 C++11 引入的一个关键字，用于指示函数不会抛出异常。C++中的异常处理是在运行时而不是编译时检测的。为了实现运行时检测，编译器创建额外的代码，然而这会妨碍程序优化。当一个函数声明为noexcept时，编译器可以假设该函数不会抛出异常，从而避免生成与异常处理相关的额外代码。这可以减少程序的运行时开销.
