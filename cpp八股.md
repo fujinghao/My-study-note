@@ -468,7 +468,8 @@ int main() {
 
 
 ### 3. weak_ptr
-std::weak_ptr 是一种智能指针，通常不单独使用，只能和 shared_ptr 类型指针搭配使用，可以视为 shared_ptr 指针的一种辅助工具。
+- weak_ptr指针通常不单独使用，只能和 shared_ptr 类型指针搭配使用。将一个weak_ptr绑定到一个shared_ptr不会改变shared_ptr的引用计数。一旦最后一个指向对象的shared_ptr被销毁，对象就会被释放。即使有weak_ptr指向对象，对象也还是会被释放。
+- weak_ptr并没有重载operator->和operator *操作符，因此不可直接通过weak_ptr使用对象，典型的用法是调用其lock函数来获得shared_ptr示例，进而访问原始对象。
 
 weak_ptr可以从一个shared_ptr或者另一个weak_ptr对象构造，获得资源的观测权。但weak_ptr没有共享资源，它的构造不会引起指针引用计数的增加。使用weak_ptr的成员函数use_count()可以观测资源的引用计数，另一个成员函数expired()的功能等价于use_count()==0，但更快。表示被观测的资源(也就是shared_ptr的管理的资源)已经不复存在。
 
@@ -731,6 +732,7 @@ void Vector::Copy(Vector&& temp){
 }
 ```
 ### 8.3 移动构造函数
+
 C++11引入了移动构造函数，默认**移动**构造函数会执行浅拷贝操作，与**拷贝**构造函数不同的是，在拷贝结束后，移动构造函数会把源对象内的指针置空。移动构造函数的目的是为了提高效率，减少内存拷贝的次数，提高程序的性能。
 ```cpp
 //拷贝构造函数：这意味着深拷贝
@@ -771,7 +773,7 @@ int main() {
 	func(a);                //OK
 	func(std::move(b));     //OK
 }
-``` 
+```
 #### 8.5.2 引用折叠
 引用折叠是C++11中引入的一种规则，用于解决万能引用的问题。引用折叠规则如下：
 - T& & 折叠为 T&

@@ -261,7 +261,7 @@ epoll在某次循环中唤醒一个事件，并用某个工作进程去处理该
 
 - CHECK_STATE_CONTENT，解析消息体，仅用于解析POST请求
 
-<div align=center><img src=".\fig\http请求报文.jpg"height="465"/> </div>
+<div align=center><img src=".\fig\get请求报文.jpg"height="465"/> </div>
 
 **从状态机的三种状态**：
 
