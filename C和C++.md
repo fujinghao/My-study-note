@@ -96,6 +96,7 @@ int main() {
 }
 ```
 ## 4. C语言实现多态和继承
+
 ```c
 #include <stdio.h>
 #include <stdlib.h>
