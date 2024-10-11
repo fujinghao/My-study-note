@@ -270,3 +270,117 @@ epoll在某次循环中唤醒一个事件，并用某个工作进程去处理该
 - LINE_OK，完整读取一行
 - LINE_BAD，报文语法有误
 - LINE_OPEN，读取的行不完整
+## 10. 网络编程api
+### 10.1 socket
+socket()函数创建一个socket，返回一个socket描述符，用于标识这个socket。
+```c
+int socket(int domain, int type, int protocol);
+```
+- domain：协议域，又称协议族（family）。常用的协议族有AF_INET、AF_INET6、AF_LOCAL（或称AF_UNIX，Unix域socket）、AF_ROUTE等等。
+- type：指定socket类型。常用的socket类型有SOCK_STREAM、SOCK_DGRAM、SOCK_RAW、SOCK_PACKET、SOCK_SEQPACKET等。
+- protocol：指定协议。常用的协议有IPPROTO_TCP、IPPROTO_UDP、IPPROTO_SCTP、IPPROTO_TIPC等，如果输入0，可以根据第二个参数自动选择协议。
+- 返回值：成功则返回新创建的socket的描述符，失败返回-1。
+### 10.2 bind
+bind()函数将一个本地协议地址赋予一个套接字。
+```c
+int bind(int sockfd, const struct sockaddr *addr, socklen_t addrlen);
+```
+- sockfd：即socket描述字，它是通过socket()函数创建得到的。
+- addr：一个const struct sockaddr *指针，指向要绑定给sockfd的协议地址。
+- addrlen：对应的是地址的长度。
+- 返回值：成功则返回0，失败返回-1。
+### 10.3 listen
+listen()函数用来监听套接字上的连接。
+```c
+int listen(int sockfd, int backlog);
+```
+- sockfd：即为要监听的那个套接字。
+- backlog：指定同时能处理的最大连接要求，如果连接数目达此上限，client端将收到ECONNREFUSED错误。
+- 返回值：成功则返回0，失败返回-1。
+### 10.4 accept
+accept()函数从listen监听的socket上接受一个连接。
+```c
+int accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen);
+```
+- sockfd：即为服务器端的socket描述字，它是通过socket()函数创建得到的。
+- addr：是一个指向局部的sockaddr_in结构体的指针，用于返回client端的协议地址。
+- addrlen：是一个指向整型的指针，其内容是addr的长度。
+- 返回值：如果accpet成功则返回一个新的socket描述字，该描述字唯一地标识了与返回的客户的TCP连接。如果accpet失败则返回-1。
+### 10.5 connect
+connect()函数用于请求连接到指定的socket地址。
+```c
+int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen);
+```
+### 10.6 send
+send()函数用于通过socket发送数据。
+```c
+ssize_t send(int sockfd, const void *buf, size_t len, int flags);
+```
+- sockfd：即为要传输数据的socket描述字。
+- buf：指向将要发送的数据。
+- len：要发送的数据的字节数。
+- flags：通常为0。
+- 返回值：成功则返回实际传送出去的字符数，失败返回-1。
+- 注意：send()函数成功返回并不意味着数据已成功发送到了目的地，它只是表示数据已成功移交给了系统内核。
+### 10.7 recv
+recv()函数用于接收远程主机传来的数据。
+```c
+ssize_t recv(int sockfd, void *buf, size_t len, int flags);
+```
+- sockfd：即为要接收数据的socket描述字。
+- buf：用于接收数据的缓冲区。
+- len：buf的长度。
+- flags：通常为0。
+- 返回值：如果recv成功则返回接收到的字节数，如果recv在接收数据时网络中断了，则返回0，如果出现其它错误返回-1。
+- 注意：recv()函数返回0表示网络中断，返回-1表示出现错误。
+### 10.8 close
+close()函数用于关闭一个socket。
+```c
+int close(int sockfd);
+```
+## 11.大端序和小端序
+- 大端序：数据的高字节保存在内存的低地址处，数据的低字节保存在内存的高地址处。
+- 小端序：数据的高字节保存在内存的高地址处，数据的低字节保存在内存的低地址处。
+- 网络字节序：网络字节序是大端序，即高字节保存在内存的低地址处。
+- 主机字节序：不同的机器有不同的字节序，x86是小端序，而大多数网络协议是大端序。
+- htons()函数：将16位的数据从主机字节序转换为网络字节序。
+- ntohs()函数：将16位的数据从网络字节序转换为主机字节序。
+- htonl()函数：将32位的数据从主机字节序转换为网络字节序。
+- ntohl()函数：将32位的数据从网络字节序转换为主机字节序。
+**如何判断主机的字节序**：
+```c
+int main() {
+    int a = 0x12345678; // 定义一个整数变量 a，并赋值为 0x12345678
+    char *p = (char *)&a; // 定义一个字符指针 p，指向变量 a 的地址
+
+    if (*p == 0x78) { // 检查 p 指向的第一个字节的值是否为 0x78
+        printf("小端序\n"); // 如果是，则系统是小端序
+    } else {
+        printf("大端序\n"); // 否则，系统是大端序
+    }
+
+    return 0;
+}
+```
+```c
+typedef union {
+    char a;
+    int b;
+}msg_t;
+ 
+int main(int argc, char const *argv[])
+{
+    msg_t num;
+ 
+    num.b=0x12345678;
+ 
+    if(num.a==0x78){
+        printf("这是小端字节序\n");
+    }else if(num.a==0x12){
+        printf("这是大端字节序\n");
+    }
+ 
+    return 0;
+}
+```
+通过联合体的特性，利用整数和字符共享同一块内存的特点，通过访问不同类型的成员来检查系统的字节序。根据字节序的不同，输出相应的结果。
