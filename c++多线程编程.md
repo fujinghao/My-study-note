@@ -199,3 +199,66 @@ int main() {
     return 0;
 }
 ```
+## 生产者消费者模型
+```cpp
+#include <iostream>
+#include <queue>
+#include <thread>
+#include <mutex>
+#include <condition_variable>
+
+std::queue<int> buffer;
+const int bufferSize = 10;
+std::mutex mutexBuffer;
+std::condition_variable condVarProducer;
+std::condition_variable condVarConsumer;
+
+void producer(int id) {
+    int item = 1;
+    while (true) {
+        std::unique_lock<std::mutex> lock(mutexBuffer);
+        condVarProducer.wait(lock, []{ return buffer.size() < bufferSize; });
+        buffer.push(item);
+        std::cout << "Producer " << id << " produced: " << item << std::endl;
+        lock.unlock();
+        condVarConsumer.notify_one();
+        item++;
+    }
+}
+
+void consumer(int id) {
+    while (true) {
+        std::unique_lock<std::mutex> lock(mutexBuffer);
+        condVarConsumer.wait(lock, []{ return!buffer.empty(); });
+        int item = buffer.front();
+        buffer.pop();
+        std::cout << "Consumer " << id << " consumed: " << item << std::endl;
+        lock.unlock();
+        condVarProducer.notify_one();
+        if (item == INT_MAX) break;
+    }
+}
+
+int main() {
+    std::thread producers[2];
+    std::thread consumers[3];
+
+    for (int i = 0; i < 2; ++i) {
+        producers[i] = std::thread(producer, i + 1);
+    }
+
+    for (int i = 0; i < 3; ++i) {
+        consumers[i] = std::thread(consumer, i + 1);
+    }
+
+    for (int i = 0; i < 2; ++i) {
+        producers[i].join();
+    }
+
+    for (int i = 0; i < 3; ++i) {
+        consumers[i].join();
+    }
+
+    return 0;
+}
+```
